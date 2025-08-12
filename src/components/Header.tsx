@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Search, ShoppingCart, Menu, X, User } from "lucide-react";
+import { Search, ShoppingCart, Menu, X, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/enhanced-button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/lib/supabase";
+import AuthModal from "./AuthModal";
 
 interface HeaderProps {
   cartItemsCount?: number;
@@ -12,7 +14,27 @@ interface HeaderProps {
 const Header = ({ cartItemsCount = 0 }: HeaderProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [user, setUser] = useState(null);
   const location = useLocation();
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
 
   const navigation = [
     { name: "Home", href: "/" },
@@ -63,9 +85,15 @@ const Header = ({ cartItemsCount = 0 }: HeaderProps) => {
 
         {/* Actions */}
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" className="hidden md:flex">
-            <User className="h-5 w-5" />
-          </Button>
+          {user ? (
+            <Button variant="ghost" size="icon" className="hidden md:flex" onClick={handleSignOut}>
+              <LogOut className="h-5 w-5" />
+            </Button>
+          ) : (
+            <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setIsAuthModalOpen(true)}>
+              <User className="h-5 w-5" />
+            </Button>
+          )}
           
           <Link to="/cart">
             <Button variant="ghost" size="icon" className="relative">
@@ -126,13 +154,25 @@ const Header = ({ cartItemsCount = 0 }: HeaderProps) => {
             </nav>
 
             {/* Mobile User */}
-            <Button variant="ghost" className="w-full justify-start">
-              <User className="h-5 w-5 mr-2" />
-              Account
-            </Button>
+            {user ? (
+              <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
+                <LogOut className="h-5 w-5 mr-2" />
+                Sign Out
+              </Button>
+            ) : (
+              <Button variant="ghost" className="w-full justify-start" onClick={() => setIsAuthModalOpen(true)}>
+                <User className="h-5 w-5 mr-2" />
+                Sign In
+              </Button>
+            )}
           </div>
         </div>
       )}
+      
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+      />
     </header>
   );
 };

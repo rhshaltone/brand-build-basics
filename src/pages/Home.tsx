@@ -5,56 +5,107 @@ import { Badge } from "@/components/ui/badge";
 import Header from "@/components/Header";
 import ProductCard from "@/components/ProductCard";
 import heroImage from "@/assets/hero-banner.jpg";
+import { supabase, type Product, type CartItem } from "@/lib/supabase";
+import { useToast } from "@/components/ui/use-toast";
 
 const Home = () => {
-  const [cartItems, setCartItems] = useState<string[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const { toast } = useToast();
 
-  // Mock featured products data
-  const featuredProducts = [
-    {
-      id: "1",
-      name: "Nike Tech Fleece Hoodie - Premium Black",
-      price: 89.99,
-      originalPrice: 119.99,
-      image: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&h=400&fit=crop",
-      category: "Clothing",
-      rating: 4.8,
-      reviews: 124,
-      isOnSale: true,
-    },
-    {
-      id: "2",
-      name: "Basketball Jersey - Lakers #24",
-      price: 79.99,
-      image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=400&fit=crop",
-      category: "Sports",
-      rating: 4.6,
-      reviews: 89,
-    },
-    {
-      id: "3",
-      name: "Premium USB-C Cable - 3ft Braided",
-      price: 24.99,
-      originalPrice: 34.99,
-      image: "https://images.unsplash.com/photo-1583394838336-acd977736f90?w=400&h=400&fit=crop",
-      category: "Electronics",
-      rating: 4.7,
-      reviews: 256,
-      isOnSale: true,
-    },
-    {
-      id: "4",
-      name: "Wireless Charging Pad - Fast Charge",
-      price: 49.99,
-      image: "https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=400&fit=crop",
-      category: "Electronics",
-      rating: 4.5,
-      reviews: 67,
-    },
-  ];
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
 
-  const handleAddToCart = (productId: string) => {
-    setCartItems(prev => [...prev, productId]);
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+    if (user) {
+      fetchCartItems();
+    }
+  }, [user]);
+
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load products",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchCartItems = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('cart_items')
+        .select(`
+          *,
+          products (*)
+        `)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      setCartItems(data || []);
+    } catch (error) {
+      console.error('Error fetching cart items:', error);
+    }
+  };
+
+  const handleAddToCart = async (productId: string) => {
+    if (!user) {
+      toast({
+        title: "Please sign in",
+        description: "You need to be signed in to add items to cart",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('add-to-cart', {
+        body: { productId, quantity: 1 },
+      });
+
+      if (error) throw error;
+
+      await fetchCartItems();
+      toast({
+        title: "Added to cart",
+        description: "Item successfully added to your cart",
+      });
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add item to cart",
+        variant: "destructive",
+      });
+    }
   };
 
   const features = [
@@ -174,18 +225,36 @@ const Home = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredProducts.map((product, index) => (
-              <div
-                key={product.id}
-                className="animate-fade-up"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <ProductCard
-                  {...product}
-                  onAddToCart={handleAddToCart}
-                />
-              </div>
-            ))}
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="animate-pulse">
+                  <div className="bg-muted rounded-lg h-64 mb-4"></div>
+                  <div className="bg-muted rounded h-4 mb-2"></div>
+                  <div className="bg-muted rounded h-4 w-2/3"></div>
+                </div>
+              ))
+            ) : (
+              products.slice(0, 4).map((product, index) => (
+                <div
+                  key={product.id}
+                  className="animate-fade-up"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <ProductCard
+                    id={product.id}
+                    name={product.name}
+                    price={product.price}
+                    originalPrice={product.original_price}
+                    image={product.image}
+                    category={product.category}
+                    rating={product.rating}
+                    reviews={product.reviews}
+                    isOnSale={product.is_on_sale}
+                    onAddToCart={handleAddToCart}
+                  />
+                </div>
+              ))
+            )}
           </div>
 
           <div className="text-center mt-12">
