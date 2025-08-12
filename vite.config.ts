@@ -9,10 +9,17 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+<<<<<<< HEAD
   plugins: [
     react(),
     mode === 'development' &&
     componentTagger(),
+=======
+  base: "/brand-build-basics/", // 👈 This tells Vite where your app will be hosted
+  plugins: [
+    react(),
+    mode === "development" && componentTagger(),
+>>>>>>> 5e3c565 (Initial commit)
   ].filter(Boolean),
   resolve: {
     alias: {
