@@ -12,7 +12,7 @@ const Home = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<null | { id: string }>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -33,20 +33,22 @@ const Home = () => {
     fetchProducts();
     if (user) {
       fetchCartItems();
+    } else {
+      setCartItems([]);
     }
   }, [user]);
 
   const fetchProducts = async () => {
     try {
       const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from<Product>("products")
+        .select("*")
+        .order("created_at", { ascending: false });
       
       if (error) throw error;
-      setProducts(data || []);
+      setProducts(data ?? []);
     } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error("Error fetching products:", error);
       toast({
         title: "Error",
         description: "Failed to load products",
@@ -59,20 +61,15 @@ const Home = () => {
 
   const fetchCartItems = async () => {
     if (!user) return;
-    
     try {
       const { data, error } = await supabase
-        .from('cart_items')
-        .select(`
-          *,
-          products (*)
-        `)
-        .eq('user_id', user.id);
-      
+        .from<CartItem>("cart_items")
+        .select("*, products(*)")
+        .eq("user_id", user.id);
       if (error) throw error;
-      setCartItems(data || []);
+      setCartItems(data ?? []);
     } catch (error) {
-      console.error('Error fetching cart items:', error);
+      console.error("Error fetching cart items:", error);
     }
   };
 
@@ -87,10 +84,9 @@ const Home = () => {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('add-to-cart', {
+      const { data, error } = await supabase.functions.invoke("add-to-cart", {
         body: { productId, quantity: 1 },
       });
-
       if (error) throw error;
 
       await fetchCartItems();
@@ -99,7 +95,7 @@ const Home = () => {
         description: "Item successfully added to your cart",
       });
     } catch (error) {
-      console.error('Error adding to cart:', error);
+      console.error("Error adding to cart:", error);
       toast({
         title: "Error",
         description: "Failed to add item to cart",
@@ -112,24 +108,24 @@ const Home = () => {
     {
       icon: <Zap className="h-6 w-6" />,
       title: "Lightning Fast",
-      description: "Quick delivery and instant processing"
+      description: "Quick delivery and instant processing",
     },
     {
       icon: <Shield className="h-6 w-6" />,
       title: "Secure Payments",
-      description: "Your data is protected with enterprise security"
+      description: "Your data is protected with enterprise security",
     },
     {
       icon: <Truck className="h-6 w-6" />,
       title: "Free Shipping",
-      description: "Free delivery on orders over $75"
+      description: "Free delivery on orders over $75",
     },
   ];
 
   return (
     <div className="min-h-screen bg-background">
       <Header cartItemsCount={cartItems.length} />
-      
+
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-background via-background/50 to-muted">
         <div className="container mx-auto px-4 py-20 lg:py-32">
@@ -142,14 +138,17 @@ const Home = () => {
                 </Badge>
                 <h1 className="text-4xl lg:text-6xl font-bold font-heading leading-tight">
                   Elevate Your
-                  <span className="bg-gradient-primary bg-clip-text text-transparent"> Style</span>
+                  <span className="bg-gradient-primary bg-clip-text text-transparent">
+                    {" "}
+                    Style
+                  </span>
                 </h1>
                 <p className="text-xl text-muted-foreground leading-relaxed max-w-lg">
-                  Discover premium streetwear, cutting-edge tech accessories, and exclusive collections. 
-                  Where quality meets innovation.
+                  Discover premium streetwear, cutting-edge tech accessories,
+                  and exclusive collections. Where quality meets innovation.
                 </p>
               </div>
-              
+
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button variant="hero" size="xl" className="group">
                   Shop Collection
@@ -220,7 +219,8 @@ const Home = () => {
               Featured Products
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Handpicked selections from our premium collections. Quality, style, and innovation in every piece.
+              Handpicked selections from our premium collections. Quality, style,
+              and innovation in every piece.
             </p>
           </div>
 
@@ -273,7 +273,8 @@ const Home = () => {
               Ready to Upgrade Your Style?
             </h2>
             <p className="text-lg text-muted-foreground">
-              Join thousands of satisfied customers who've elevated their lifestyle with our premium products.
+              Join thousands of satisfied customers who've elevated their lifestyle
+              with our premium products.
             </p>
             <Button variant="hero" size="xl" className="animate-glow">
               Start Shopping Now
@@ -295,38 +296,86 @@ const Home = () => {
                 Premium streetwear and tech accessories for the modern lifestyle.
               </p>
             </div>
-            
+
             <div>
               <h3 className="font-semibold mb-4">Shop</h3>
               <ul className="space-y-2 text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground transition-colors">New Arrivals</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Clothing</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Electronics</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Accessories</a></li>
+                <li>
+                  <a href="#" className="hover:text-foreground transition-colors">
+                    New Arrivals
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-foreground transition-colors">
+                    Clothing
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-foreground transition-colors">
+                    Electronics
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-foreground transition-colors">
+                    Accessories
+                  </a>
+                </li>
               </ul>
             </div>
-            
+
             <div>
               <h3 className="font-semibold mb-4">Support</h3>
               <ul className="space-y-2 text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground transition-colors">Contact Us</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Size Guide</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Shipping Info</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Returns</a></li>
+                <li>
+                  <a href="#" className="hover:text-foreground transition-colors">
+                    Contact Us
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-foreground transition-colors">
+                    Size Guide
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-foreground transition-colors">
+                    Shipping Info
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-foreground transition-colors">
+                    Returns
+                  </a>
+                </li>
               </ul>
             </div>
-            
+
             <div>
               <h3 className="font-semibold mb-4">Company</h3>
               <ul className="space-y-2 text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Privacy</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Terms</a></li>
+                <li>
+                  <a href="#" className="hover:text-foreground transition-colors">
+                    About Us
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-foreground transition-colors">
+                    Careers
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-foreground transition-colors">
+                    Privacy
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-foreground transition-colors">
+                    Terms
+                  </a>
+                </li>
               </ul>
             </div>
           </div>
-          
+
           <div className="border-t border-border mt-12 pt-8 text-center text-muted-foreground">
             <p>&copy; 2024 LUXE STORE. All rights reserved.</p>
           </div>
