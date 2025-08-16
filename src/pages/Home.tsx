@@ -41,7 +41,7 @@ const Home = () => {
   const fetchProducts = async () => {
     try {
       const { data, error } = await supabase
-        .from<Product>("products")
+        .from("products")
         .select("*")
         .order("created_at", { ascending: false });
       
@@ -63,7 +63,7 @@ const Home = () => {
     if (!user) return;
     try {
       const { data, error } = await supabase
-        .from<CartItem>("cart_items")
+        .from("cart_items")
         .select("*, products(*)")
         .eq("user_id", user.id);
       if (error) throw error;
